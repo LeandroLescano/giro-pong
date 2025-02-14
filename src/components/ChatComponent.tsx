@@ -1,5 +1,5 @@
 "use client";
-import React, {useEffect, useState} from "react";
+import React, {useEffect, useRef, useState} from "react";
 
 import webconnect from "webconnect";
 import {MessageData, OnConnectAttribute} from "./types";
@@ -14,33 +14,46 @@ import {Input} from "@/components/ui/input";
 import {ScrollArea} from "@/components/ui/scroll-area";
 import {Button} from "@/components/ui/button";
 
-const connect = webconnect({});
-
-const ChatComponent = () => {
+const ChatComponent = ({
+  roomID,
+  username,
+}: {
+  roomID: string;
+  username: string;
+}) => {
   const [myConnectionID, setMyConnectionID] = useState("");
 
   const [messages, setMessages] = useState<MessageData[]>([]);
   const [message, setMessage] = useState("");
-  const [username, setUsername] = useState("");
+
+  const connect = useRef<ReturnType<typeof webconnect>>(null);
 
   useEffect(() => {
-    connect.onConnect((attribute: OnConnectAttribute) => {
+    if (!myConnectionID) {
+      connect.current = webconnect({appName: "giropong", channelName: roomID});
+    }
+
+    connect.current?.onConnect((attribute: OnConnectAttribute) => {
       console.log({attribute});
       console.log(`${attribute.connectId} connected`);
       setMyConnectionID(attribute.connectId);
+      connect.current?.Send(
+        {text: `User ${username} enters the chat`, username},
+        {connectId: attribute.connectId}
+      );
     });
-  }, []);
+  }, [roomID, myConnectionID, username]);
 
   useEffect(() => {
-    connect.onReceive((message: MessageData) => {
+    connect.current?.onReceive((message: MessageData) => {
       console.log(`Received message: ${message}`);
       setMessages((prevMessages) => [...prevMessages, message]);
     });
-  }, [messages]);
+  }, [connect, messages]);
 
   const sendMessage = () => {
     const msg = {text: message, username};
-    connect.Send(msg, {connectId: myConnectionID});
+    connect.current?.Send(msg, {connectId: myConnectionID});
     setMessages((prevMessages) => [...prevMessages, msg]);
     setMessage("");
   };
@@ -75,13 +88,6 @@ const ChatComponent = () => {
       </CardHeader>
       <CardContent>
         <div className="mb-4">
-          <Input
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="Enter your username"
-            className="mb-2"
-          />
           {myConnectionID && (
             <p className="text-sm text-muted-foreground">
               Connected as: {myConnectionID}
