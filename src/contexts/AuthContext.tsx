@@ -14,16 +14,16 @@ import {
   onAuthStateChanged,
   signOut as authSignOut,
   signInAnonymously as authSignInAnonymously,
-  // connectAuthEmulator,
+  connectAuthEmulator,
 } from "firebase/auth";
-// import {
-//   getAnalytics,
-//   isSupported,
-//   setAnalyticsCollectionEnabled,
-// } from "firebase/analytics";
+import {
+  getAnalytics,
+  isSupported,
+  setAnalyticsCollectionEnabled,
+} from "firebase/analytics";
 import {getApp, getApps, initializeApp} from "firebase/app";
-// import {connectDatabaseEmulator, getDatabase} from "firebase/database";
-// import {connectFirestoreEmulator, getFirestore} from "firebase/firestore";
+import {connectDatabaseEmulator, getDatabase} from "firebase/database";
+import {connectFirestoreEmulator, getFirestore} from "firebase/firestore";
 import {firebaseConfig} from "@/resources/config";
 
 interface AuthContextState {
@@ -46,23 +46,23 @@ interface Props {
   children: JSX.Element;
 }
 
-// if (process.env.NODE_ENV === "development") {
-//   const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-//   try {
-//     connectAuthEmulator(getAuth(app), "http://localhost:9099", {
-//       disableWarnings: true,
-//     });
-//     connectFirestoreEmulator(getFirestore(app), "localhost", 8080);
-//     connectDatabaseEmulator(getDatabase(app), "localhost", 9000);
+if (process.env.NODE_ENV === "development") {
+  const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+  try {
+    connectAuthEmulator(getAuth(app), "http://localhost:9099", {
+      disableWarnings: true,
+    });
+    connectFirestoreEmulator(getFirestore(app), "localhost", 8080);
+    connectDatabaseEmulator(getDatabase(app), "localhost", 9000);
 
-//     isSupported().then(
-//       (supported) =>
-//         supported && setAnalyticsCollectionEnabled(getAnalytics(), false)
-//     );
-//   } catch (error) {
-//     console.log({error});
-//   }
-// }
+    isSupported().then(
+      (supported) =>
+        supported && setAnalyticsCollectionEnabled(getAnalytics(), false)
+    );
+  } catch (error) {
+    console.log({error});
+  }
+}
 
 export function AuthProvider({children}: Props) {
   const auth = useAuthProvider();

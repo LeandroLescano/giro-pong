@@ -1,5 +1,5 @@
 "use client";
-import React, {useEffect, useRef, useState} from "react";
+import React, {useEffect, useState} from "react";
 import {Peer, DataConnection} from "peerjs";
 
 import {MessageData} from "./types";
@@ -14,6 +14,14 @@ import {Input} from "@/components/ui/input";
 import {ScrollArea} from "@/components/ui/scroll-area";
 import {Button} from "@/components/ui/button";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   collection,
   deleteDoc,
   doc,
@@ -23,6 +31,7 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import {useAuth} from "@/contexts/AuthContext";
+import {Player} from "@/types/Player";
 
 const ChatComponent = ({
   roomID,
@@ -32,22 +41,37 @@ const ChatComponent = ({
   username: string;
 }) => {
   const [connectionID, setConnectionID] = useState("");
-  const connections = useRef<{[key: string]: DataConnection}>({});
+  const [connections, setConnections] = useState<{
+    [key: string]: {connection: DataConnection; userID: string} | undefined;
+  }>({});
+  const [players, setPlayers] = useState<Player[]>([]);
   const [peer, setPeer] = useState<Peer | null>(null);
   const [messages, setMessages] = useState<MessageData[]>([]);
   const [message, setMessage] = useState("");
   const {user, signInAnonymously} = useAuth();
   const db = getFirestore();
 
-  const connectToPeer = (peerId: string, localPeer = peer) => {
+  const connectToPeer = (peerId: string, userID: string, localPeer = peer) => {
     if (!localPeer) return;
 
     console.log(`connect to ${peerId}`);
     const conn = localPeer.connect(peerId);
     conn.on("open", () => {
       console.log(`open connection to ${peerId}`);
-      connections.current[peerId] = conn;
+      const existingConnectionUser = Object.entries(connections).find(
+        ([, conn]) => conn?.userID === userID
+      )?.[0];
+      const localConnections = connections;
+      if (existingConnectionUser) {
+        console.log("existing connection for the same user");
+        localConnections[existingConnectionUser] = undefined;
+        localConnections[peerId] = {connection: conn, userID};
+      } else {
+        localConnections[peerId] = {connection: conn, userID};
+      }
+      setConnections(localConnections);
       console.log({connections});
+      conn.send({text: "Se ha conectado", username});
     });
 
     conn.on("data", (data: unknown) => {
@@ -61,7 +85,7 @@ const ChatComponent = ({
       console.log("not user id");
     } else {
       const newPeer = new Peer();
-      const players = collection(db, "rooms", roomID, "players");
+      const playersRef = collection(db, "rooms", roomID, "players");
       const player = doc(db, "rooms", roomID, "players", user.uid);
 
       newPeer.on("open", (id) => {
@@ -81,18 +105,30 @@ const ChatComponent = ({
         });
       });
 
-      const unsubscribe = onSnapshot(players, (snapshot) => {
+      const unsubscribe = onSnapshot(playersRef, (snapshot) => {
         snapshot.docChanges().forEach((change) => {
           console.log(change);
+          const data: Player = change.doc.data() as Player;
+          if (!data.connectionID) return;
+
+          const userID = change.doc.id;
           if (change.type === "added") {
-            console.log(
-              `New player ${change.doc.data().username} - ${change.doc.id}`
-            );
-            const connID = change.doc.data().connectionID;
-            const userID = change.doc.id;
+            console.log(`New player ${data.username} - ${userID}`);
             if (userID !== user?.uid) {
-              connectToPeer(connID, newPeer);
+              connectToPeer(data.connectionID, userID, newPeer);
             }
+            if (!players.find((p) => p.key === userID)) {
+              setPlayers((prev) => [...prev, {...data, key: userID}]);
+            }
+          } else if (change.type === "modified") {
+            if (userID !== user?.uid) {
+              connectToPeer(data.connectionID, userID, newPeer);
+            }
+            setPlayers((prev) =>
+              prev.map((p) => (p.key === userID ? {...data, key: userID} : p))
+            );
+          } else {
+            setPlayers((prev) => prev.filter((p) => p.key !== userID));
           }
         });
       });
@@ -134,53 +170,81 @@ const ChatComponent = ({
 
   const sendMessage = () => {
     const msg = {text: message, username};
-    Object.values(connections.current).forEach((conn) => conn.send(msg));
+    Object.values(connections).forEach((conn) => conn?.connection.send(msg));
     setMessages((prevMessages) => [...prevMessages, msg]);
     setMessage("");
   };
 
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardHeader>
-        <CardTitle>Chat Room</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="mb-4">
-          {connectionID && (
-            <p className="text-sm text-muted-foreground">
-              Connected as: {connectionID}
-            </p>
-          )}
-        </div>
-        <ScrollArea className="h-[300px] w-full rounded-md border p-4">
-          {messages.map((msg, i) => (
-            <div key={`${msg.username}-${i}`} className="mb-2">
-              <span className="font-semibold">{msg.username}: </span>
-              <span>{msg.text}</span>
-            </div>
+    <>
+      <Card className="w-full max-w-md mx-auto">
+        <CardHeader>
+          <CardTitle>Chat Room</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="mb-4">
+            {connectionID && (
+              <p className="text-sm text-muted-foreground">
+                Connected as: {connectionID}
+              </p>
+            )}
+          </div>
+          <ScrollArea className="h-[300px] w-full rounded-md border p-4">
+            {messages.map((msg, i) => (
+              <div key={`${msg.username}-${i}`} className="mb-2">
+                <span className="font-semibold">{msg.username}: </span>
+                <span>{msg.text}</span>
+              </div>
+            ))}
+          </ScrollArea>
+        </CardContent>
+        <CardFooter>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              sendMessage();
+            }}
+            className="flex w-full gap-2"
+          >
+            <Input
+              type="text"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Type a message..."
+              className="flex-grow"
+              onSubmitCapture={sendMessage}
+            />
+            <Button type="submit">Send</Button>
+          </form>
+        </CardFooter>
+      </Card>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Username</TableHead>
+            <TableHead>Connection</TableHead>
+            <TableHead>Type</TableHead>
+            <TableHead>isConnectedTo</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {players.map((p) => (
+            <TableRow key={p.username}>
+              <TableCell>{p.username}</TableCell>
+              <TableCell>{p.connectionID}</TableCell>
+              <TableCell>{p.type}</TableCell>
+              <TableCell>
+                {p.key === user?.uid
+                  ? "N/A"
+                  : Object.values(connections).find((c) => c?.userID === p.key)
+                  ? "✅"
+                  : "❌"}
+              </TableCell>
+            </TableRow>
           ))}
-        </ScrollArea>
-      </CardContent>
-      <CardFooter>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            sendMessage();
-          }}
-          className="flex w-full gap-2"
-        >
-          <Input
-            type="text"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder="Type a message..."
-            className="flex-grow"
-            onSubmitCapture={sendMessage}
-          />
-          <Button type="submit">Send</Button>
-        </form>
-      </CardFooter>
-    </Card>
+        </TableBody>
+      </Table>
+    </>
   );
 };
 

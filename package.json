@@ -3,10 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "concurrently -p \"[{name}]\" -n \"NEXT,FIREBASE\" -c \"bgBlack.bold,#FF8800.bold\" \"next dev --turbopack\" \"npm run emulators\"",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "emulators": "firebase emulators:start --only auth,firestore"
   },
   "dependencies": {
     "@radix-ui/react-label": "^2.1.2",
@@ -33,6 +34,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "concurrently": "^9.1.2",
     "eslint": "^9",
     "eslint-config-next": "15.1.7",
     "postcss": "^8",

@@ -1,6 +1,7 @@
 import type {NextConfig} from "next";
 
 const nextConfig: NextConfig = {
+  reactStrictMode: false,
   env: {
     apiKey: process.env.API_KEY,
     authDomain: process.env.AUTH_DOMAIN,
