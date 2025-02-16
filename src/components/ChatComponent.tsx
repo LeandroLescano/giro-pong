@@ -1,8 +1,8 @@
 "use client";
 import React, {useEffect, useRef, useState} from "react";
+import {Peer, DataConnection} from "peerjs";
 
-import webconnect from "webconnect";
-import {MessageData, OnConnectAttribute} from "./types";
+import {MessageData} from "./types";
 import {
   Card,
   CardContent,
@@ -13,6 +13,17 @@ import {
 import {Input} from "@/components/ui/input";
 import {ScrollArea} from "@/components/ui/scroll-area";
 import {Button} from "@/components/ui/button";
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getFirestore,
+  onSnapshot,
+  setDoc,
+  updateDoc,
+  Unsubscribe,
+} from "firebase/firestore";
+import {useAuth} from "@/contexts/AuthContext";
 
 const ChatComponent = ({
   roomID,
@@ -21,76 +32,126 @@ const ChatComponent = ({
   roomID: string;
   username: string;
 }) => {
-  const [myConnectionID, setMyConnectionID] = useState("");
-
+  const [connectionID, setConnectionID] = useState("");
+  const connections = useRef<{[key: string]: DataConnection}>({});
+  const [peer, setPeer] = useState<Peer | null>(null);
   const [messages, setMessages] = useState<MessageData[]>([]);
   const [message, setMessage] = useState("");
+  const {user, signInAnonymously} = useAuth();
+  const db = getFirestore();
 
-  const connect = useRef<ReturnType<typeof webconnect>>(null);
+  const connectToPeer = (peerId: string, localPeer = peer) => {
+    if (!localPeer) return;
+
+    console.log(`connect to ${peerId}`);
+    const conn = localPeer.connect(peerId);
+    conn.on("open", () => {
+      console.log(`open connection to ${peerId}`);
+      connections.current[peerId] = conn;
+      console.log({connections});
+    });
+
+    conn.on("data", (data: unknown) => {
+      console.log(`onData ${peerId}`);
+      setMessages((msgs) => [...msgs, data as MessageData]);
+    });
+  };
 
   useEffect(() => {
-    if (!myConnectionID) {
-      connect.current = webconnect({appName: "giropong", channelName: roomID});
+    if (!user?.uid) {
+      console.log("not user id");
+    } else {
+      const newPeer = new Peer();
+      const players = collection(db, "rooms", roomID, "players");
+      const player = doc(db, "rooms", roomID, "players", user.uid);
+      let unsubscribe: Unsubscribe;
+
+      newPeer.on("open", (id) => {
+        setConnectionID(id);
+        updateDoc(player, {connectionID: id}).catch((e) => {
+          if (e.code === "not-found") {
+            setDoc(player, {
+              username,
+              type: "player",
+              connectionID: id,
+            });
+
+            unsubscribe = onSnapshot(players, (snapshot) => {
+              snapshot.docChanges().forEach((change) => {
+                console.log(change);
+                if (change.type === "added") {
+                  console.log(
+                    `New player ${change.doc.data().username} - ${
+                      change.doc.id
+                    }`
+                  );
+                  const connID = change.doc.data().connectionID;
+                  const userID = change.doc.id;
+                  if (userID !== user?.uid) {
+                    connectToPeer(connID, newPeer);
+                  }
+                }
+              });
+            });
+            return;
+          }
+
+          throw e;
+        });
+      });
+
+      newPeer.on("connection", (conn) => {
+        conn.on("data", (data) => {
+          setMessages((prev) => [...prev, data as MessageData]);
+        });
+      });
+
+      setPeer(newPeer);
+
+      return () => {
+        newPeer.destroy();
+        unsubscribe();
+      };
     }
-
-    connect.current?.onConnect((attribute: OnConnectAttribute) => {
-      console.log({attribute});
-      console.log(`${attribute.connectId} connected`);
-      setMyConnectionID(attribute.connectId);
-      connect.current?.Send(
-        {text: `User ${username} enters the chat`, username},
-        {connectId: attribute.connectId}
-      );
-    });
-  }, [roomID, myConnectionID, username]);
+  }, [db, roomID, user?.uid, signInAnonymously, username]);
 
   useEffect(() => {
-    connect.current?.onReceive((message: MessageData) => {
-      console.log(`Received message: ${message}`);
-      setMessages((prevMessages) => [...prevMessages, message]);
-    });
-  }, [connect, messages]);
+    const onBeforeUnload = (
+      ev: WindowEventHandlersEventMap["beforeunload"]
+    ) => {
+      if (user?.uid) {
+        const player = doc(db, "rooms", roomID, "players", user?.uid);
+        deleteDoc(player);
+      }
+
+      ev.returnValue = "Anything you wanna put here!";
+      return "Anything here as well, doesn't matter!";
+    };
+
+    window.addEventListener("beforeunload", onBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+    };
+  }, [roomID, user?.uid, db]);
 
   const sendMessage = () => {
     const msg = {text: message, username};
-    connect.current?.Send(msg, {connectId: myConnectionID});
+    Object.values(connections.current).forEach((conn) => conn.send(msg));
     setMessages((prevMessages) => [...prevMessages, msg]);
     setMessage("");
   };
 
   return (
-    // <>
-    //   <div>{myConnectionID && <p>My connection ID: {myConnectionID}</p>}</div>
-    //   <input
-    //     type="text"
-    //     value={username}
-    //     onChange={(e) => setUsername(e.target.value)}
-    //   />
-    //   <br />
-    //   {messages.map((message, i) => (
-    //     <div key={`${message.username}-${i}`}>
-    //       <p>
-    //         {message.username}: {message.text}
-    //       </p>
-    //     </div>
-    //   ))}
-    //   <input
-    //     type="text"
-    //     id="message"
-    //     value={message}
-    //     onChange={(e) => setMessage(e.target.value)}
-    //   />
-    //   <button onClick={sendMessage}>Send</button>
-    // </>
     <Card className="w-full max-w-md mx-auto">
       <CardHeader>
         <CardTitle>Chat Room</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="mb-4">
-          {myConnectionID && (
+          {connectionID && (
             <p className="text-sm text-muted-foreground">
-              Connected as: {myConnectionID}
+              Connected as: {connectionID}
             </p>
           )}
         </div>

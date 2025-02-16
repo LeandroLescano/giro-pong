@@ -13,13 +13,25 @@ import {
 } from "@/components/ui/card";
 import {Label} from "@/components/ui/label";
 import {toast} from "@/hooks/use-toast";
+import {
+  getFirestore,
+  addDoc,
+  collection,
+  setDoc,
+  doc,
+} from "firebase/firestore";
+import {useAuth} from "@/contexts/AuthContext";
 
 export default function JoinChatForm() {
   const [username, setUsername] = useState("");
   const [roomName, setRoomName] = useState("");
   const router = useRouter();
+  const db = getFirestore();
+  const {user} = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    if (!user?.uid) return; //TODO: add some alert or error
+
     e.preventDefault();
 
     if (!username.trim()) {
@@ -42,7 +54,16 @@ export default function JoinChatForm() {
 
     // Here you would typically handle joining the room
     // For now, we'll just redirect to a chat page with the username and room as query params
-    router.push(`/chat/${roomName}?username=${encodeURIComponent(username)}`);
+    const rooms = collection(db, "rooms");
+    const {id} = await addDoc(rooms, {
+      name: roomName,
+    });
+    const player = doc(db, "rooms", id, "players", user.uid);
+    setDoc(player, {
+      username,
+      type: "host",
+    });
+    router.push(`/chat/${id}?username=${encodeURIComponent(username)}`);
   };
 
   return (
