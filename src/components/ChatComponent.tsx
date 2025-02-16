@@ -97,10 +97,6 @@ const ChatComponent = ({
         });
       });
 
-      return () => {
-        unsubscribe();
-      };
-
       newPeer.on("connection", (conn) => {
         conn.on("data", (data) => {
           setMessages((prev) => [...prev, data as MessageData]);
