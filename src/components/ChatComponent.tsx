@@ -64,7 +64,6 @@ const ChatComponent = ({
       const newPeer = new Peer();
       const players = collection(db, "rooms", roomID, "players");
       const player = doc(db, "rooms", roomID, "players", user.uid);
-      let unsubscribe: Unsubscribe;
 
       newPeer.on("open", (id) => {
         setConnectionID(id);
@@ -76,29 +75,32 @@ const ChatComponent = ({
               connectionID: id,
             });
 
-            unsubscribe = onSnapshot(players, (snapshot) => {
-              snapshot.docChanges().forEach((change) => {
-                console.log(change);
-                if (change.type === "added") {
-                  console.log(
-                    `New player ${change.doc.data().username} - ${
-                      change.doc.id
-                    }`
-                  );
-                  const connID = change.doc.data().connectionID;
-                  const userID = change.doc.id;
-                  if (userID !== user?.uid) {
-                    connectToPeer(connID, newPeer);
-                  }
-                }
-              });
-            });
             return;
           }
 
           throw e;
         });
       });
+
+      const unsubscribe = onSnapshot(players, (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+          console.log(change);
+          if (change.type === "added") {
+            console.log(
+              `New player ${change.doc.data().username} - ${change.doc.id}`
+            );
+            const connID = change.doc.data().connectionID;
+            const userID = change.doc.id;
+            if (userID !== user?.uid) {
+              connectToPeer(connID, newPeer);
+            }
+          }
+        });
+      });
+
+      return () => {
+        unsubscribe();
+      };
 
       newPeer.on("connection", (conn) => {
         conn.on("data", (data) => {
