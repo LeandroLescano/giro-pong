@@ -2,10 +2,10 @@
 
 import dynamic from "next/dynamic";
 
-const JoinGameForm = dynamic(() => import("@/components/JoinGameForm"), {
+const JoinChatForm = dynamic(() => import("@/components/JoinForm"), {
   ssr: false,
 });
 
 export default function Home() {
-  return <JoinGameForm />;
+  return <JoinChatForm />;
 }

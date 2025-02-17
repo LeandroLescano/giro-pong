@@ -6,3 +6,9 @@ export interface MessageData {
   text: string;
   username: string;
 }
+
+export interface PongData {
+  key: string;
+  x: number;
+  y: number;
+}
