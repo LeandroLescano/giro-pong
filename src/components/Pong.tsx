@@ -1,7 +1,7 @@
-import {useEffect, useRef, useState} from "react";
+import {Fragment, useEffect, useMemo, useRef, useState} from "react";
 import {useKeyHold} from "@/hooks/use-key-press";
 import Konva from "konva";
-import {Stage, Layer, Rect} from "react-konva";
+import {Stage, Layer, Rect, Text} from "react-konva";
 import {useAuth} from "@/contexts/AuthContext";
 import {
   collection,
@@ -24,6 +24,9 @@ import Peer, {DataConnection} from "peerjs";
 import {Player} from "@/types/Player";
 import {PongData} from "./types";
 
+const MAX_RETRIES = 5;
+const RETRY_DELAY = 5000; // 5 seconds
+
 const Pong = ({roomID, username}: {roomID: string; username: string}) => {
   const [connections, setConnections] = useState<{
     [key: string]: {connection: DataConnection; userID: string} | undefined;
@@ -33,21 +36,51 @@ const Pong = ({roomID, username}: {roomID: string; username: string}) => {
   const {user, signInAnonymously} = useAuth();
   const db = getFirestore();
 
-  const connectToPeer = (peerId: string, userID: string, localPeer = peer) => {
+  const connectToPeer = (
+    peerId: string,
+    userID: string,
+    localPeer = peer,
+    attempt = 1
+  ) => {
     if (!localPeer) return;
+    console.log(`Attempt ${attempt}: Connecting to ${peerId}...`);
 
     const conn = localPeer.connect(peerId);
+
+    const timeout = setTimeout(() => {
+      if (!conn.open) {
+        console.warn(`Attempt ${attempt} failed. Retrying...`);
+        if (attempt < MAX_RETRIES) {
+          connectToPeer(peerId, userID, localPeer, attempt + 1);
+        } else {
+          console.error(`Max retries reached. Could not connect to ${peerId}.`);
+        }
+      }
+    }, RETRY_DELAY);
+
+    conn.on("error", (err) => {
+      console.error(`Connection to ${peerId} error:`, err);
+    });
+
     conn.on("open", () => {
+      clearTimeout(timeout);
+      console.log(`Connected to ${peerId} on attempt ${attempt}`);
+
       const existingConnectionUser = Object.entries(connections).find(
         ([, conn]) => conn?.userID === userID
       )?.[0];
-      const localConnections = connections;
+
+      const localConnections = {...connections};
+
       if (existingConnectionUser) {
+        console.log(`Replacing existing connection for userID: ${userID}`);
         localConnections[existingConnectionUser] = undefined;
         localConnections[peerId] = {connection: conn, userID};
       } else {
+        console.log(`New connection established for userID: ${userID}`);
         localConnections[peerId] = {connection: conn, userID};
       }
+
       setConnections(localConnections);
       conn.send({...coords, key: user?.uid} as PongData);
     });
@@ -109,6 +142,9 @@ const Pong = ({roomID, username}: {roomID: string; username: string}) => {
             );
           } else {
             setPlayers((prev) => prev.filter((p) => p.key !== userID));
+            setOtherPlayersCoords((prev) =>
+              prev.filter((p) => p.key !== userID)
+            );
           }
         });
       });
@@ -162,6 +198,14 @@ const Pong = ({roomID, username}: {roomID: string; username: string}) => {
   const stage = useRef<Konva.Stage>(null);
   const paddle = useRef<Konva.Rect>(null);
 
+  const usernamesByKey = useMemo(() => {
+    const obj: {[key: string]: string} = {};
+    players.forEach((p) => {
+      obj[p.key] = p.username;
+    });
+    return obj;
+  }, [players]);
+
   const moveRight = () => {
     if (stage.current) {
       if (coords.x + 200 + 2 <= stage.current?.width())
@@ -204,16 +248,37 @@ const Pong = ({roomID, username}: {roomID: string; username: string}) => {
             fill="red"
             ref={paddle}
           />
+          <Text
+            x={coords.x}
+            y={coords.y}
+            verticalAlign="middle"
+            align="center"
+            text={username}
+            fill="white"
+            width={200}
+            height={50}
+          />
           {otherPlayersCoords.map(({key, ...pCoords}) => (
-            <Rect
-              key={key}
-              {...pCoords}
-              stroke="black"
-              radius={20}
-              width={200}
-              height={50}
-              fill="green"
-            />
+            <Fragment key={key}>
+              <Rect
+                {...pCoords}
+                stroke="black"
+                radius={20}
+                width={200}
+                height={50}
+                fill="green"
+              />
+              <Text
+                x={pCoords.x}
+                y={pCoords.y}
+                verticalAlign="middle"
+                align="center"
+                text={usernamesByKey[key]}
+                fill="white"
+                width={200}
+                height={50}
+              />
+            </Fragment>
           ))}
         </Layer>
       </Stage>
