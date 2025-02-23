@@ -1,13 +1,11 @@
 "use client";
 
-import React, {
-  useState,
-  useEffect,
-  useContext,
-  createContext,
-  JSX,
-  useCallback,
-} from "react";
+import {
+  getAnalytics,
+  isSupported,
+  setAnalyticsCollectionEnabled,
+} from "firebase/analytics";
+import {getApp, getApps, initializeApp} from "firebase/app";
 import {
   User,
   getAuth,
@@ -16,14 +14,17 @@ import {
   signInAnonymously as authSignInAnonymously,
   connectAuthEmulator,
 } from "firebase/auth";
-import {
-  getAnalytics,
-  isSupported,
-  setAnalyticsCollectionEnabled,
-} from "firebase/analytics";
-import {getApp, getApps, initializeApp} from "firebase/app";
 import {connectDatabaseEmulator, getDatabase} from "firebase/database";
 import {connectFirestoreEmulator, getFirestore} from "firebase/firestore";
+import React, {
+  useState,
+  useEffect,
+  useContext,
+  createContext,
+  JSX,
+  useCallback,
+} from "react";
+
 import {firebaseConfig} from "@/resources/config";
 
 interface AuthContextState {

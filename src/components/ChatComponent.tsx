@@ -1,26 +1,5 @@
 "use client";
-import React, {useEffect, useState} from "react";
-import {Peer, DataConnection} from "peerjs";
 
-import {MessageData} from "./types";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {Input} from "@/components/ui/input";
-import {ScrollArea} from "@/components/ui/scroll-area";
-import {Button} from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import {
   collection,
   deleteDoc,
@@ -30,8 +9,31 @@ import {
   setDoc,
   updateDoc,
 } from "firebase/firestore";
+import {Peer, DataConnection} from "peerjs";
+import React, {useEffect, useState} from "react";
+
+import {Button} from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {Input} from "@/components/ui/input";
+import {ScrollArea} from "@/components/ui/scroll-area";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {useAuth} from "@/contexts/AuthContext";
 import {Player} from "@/types/Player";
+
+import {MessageData} from "./types";
 
 const ChatComponent = ({
   roomID,

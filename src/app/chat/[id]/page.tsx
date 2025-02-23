@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import {useParams, useSearchParams} from "next/navigation";
-const ChatComponent = dynamic(() => import("@/components/ChatComponent"), {
+const ChatComponent = dynamic(() => import("@/components/ChatSimplePeer"), {
   ssr: false,
 });
 

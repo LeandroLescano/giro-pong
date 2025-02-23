@@ -1,10 +1,8 @@
 "use client";
-
 import dynamic from "next/dynamic";
 const Pong = dynamic(() => import("@/components/Pong"), {
   ssr: false,
 });
-
 import {useParams, useSearchParams} from "next/navigation";
 
 const Game = () => {

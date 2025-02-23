@@ -1,18 +1,5 @@
 "use client";
 
-import {useState} from "react";
-import {useRouter} from "next/navigation";
-import {Button} from "@/components/ui/button";
-import {Input} from "@/components/ui/input";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {Label} from "@/components/ui/label";
-import {toast} from "@/hooks/use-toast";
 import {
   getFirestore,
   addDoc,
@@ -20,7 +7,21 @@ import {
   setDoc,
   doc,
 } from "firebase/firestore";
+import {useRouter} from "next/navigation";
+import {useState} from "react";
+
+import {Button} from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {Input} from "@/components/ui/input";
+import {Label} from "@/components/ui/label";
 import {useAuth} from "@/contexts/AuthContext";
+import {toast} from "@/hooks/use-toast";
 
 export default function JoinChatForm() {
   const [username, setUsername] = useState("");
