@@ -84,8 +84,8 @@ const Pong = ({roomID, username}: {roomID: string; username: string}) => {
     }
   };
 
-  useKeyHold({key: ["a", "ArrowLeft"]}, moveLeft);
-  useKeyHold({key: ["d", "ArrowRight"]}, moveRight);
+  useKeyHold({key: ["a", "ArrowLeft", "4"]}, moveLeft);
+  useKeyHold({key: ["d", "ArrowRight", "6"]}, moveRight);
 
   useEffect(() => {
     if (!user?.uid) return;
