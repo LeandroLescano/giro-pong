@@ -111,20 +111,19 @@ const ChatComponent = ({
         snapshot.docChanges().forEach((change) => {
           console.log(change);
           const data: Player = change.doc.data() as Player;
-          if (!data.connectionID) return;
 
           const userID = change.doc.id;
           if (change.type === "added") {
             console.log(`New player ${data.username} - ${userID}`);
             if (userID !== user?.uid) {
-              connectToPeer(data.connectionID, userID, newPeer);
+              connectToPeer("", userID, newPeer);
             }
             if (!players.find((p) => p.key === userID)) {
               setPlayers((prev) => [...prev, {...data, key: userID}]);
             }
           } else if (change.type === "modified") {
             if (userID !== user?.uid) {
-              connectToPeer(data.connectionID, userID, newPeer);
+              connectToPeer("", userID, newPeer);
             }
             setPlayers((prev) =>
               prev.map((p) => (p.key === userID ? {...data, key: userID} : p))
@@ -233,7 +232,6 @@ const ChatComponent = ({
           {players.map((p) => (
             <TableRow key={p.username}>
               <TableCell>{p.username}</TableCell>
-              <TableCell>{p.connectionID}</TableCell>
               <TableCell>{p.type}</TableCell>
               <TableCell>
                 {p.key === user?.uid
