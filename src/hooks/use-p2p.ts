@@ -115,7 +115,7 @@ export function useP2p<T>({
       try {
         peer?.send(payload);
       } catch (err) {
-        console.error("Error sending data to peer:", err);
+        console.warn("Error sending data to peer:", err);
       }
     });
   };

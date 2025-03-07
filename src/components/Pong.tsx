@@ -16,6 +16,7 @@ import {useKeyHold} from "@/hooks/use-key-press";
 import {useP2p} from "@/hooks/use-p2p";
 import {haveIntersection, isInside} from "@/lib/utils";
 import {Player} from "@/types/Player";
+import {useSteeringAngle} from "@/hooks/use-steering-angle";
 
 import {PongData} from "./types";
 
@@ -62,6 +63,7 @@ const Pong = ({roomID, username}: {roomID: string; username: string}) => {
   const [otherPlayersCoords, setOtherPlayersCoords] = useState<PongData[]>([]);
 
   const db = getFirestore();
+  const {angle} = useSteeringAngle();
 
   const {user, signInAnonymously} = useAuth();
   const localID = useMemo(() => user?.uid || "Default", [user?.uid]);
@@ -99,7 +101,7 @@ const Pong = ({roomID, username}: {roomID: string; username: string}) => {
     return obj;
   }, [players]);
 
-  const moveRight = () => {
+  const moveRight = (multiplier = 1) => {
     if (stage.current) {
       const {intersects, sides} = haveIntersection(
         ball.current?.getClientRect(),
@@ -109,7 +111,7 @@ const Pong = ({roomID, username}: {roomID: string; username: string}) => {
       if (!intersects || !sides.includes("right")) {
         setCoords((prev) => {
           // if (prev.x + 200 + 2 <= stage.current!.width()) {
-          const updatedCoords = {...prev, x: prev.x + SPEED};
+          const updatedCoords = {...prev, x: prev.x + SPEED * multiplier};
           sendDataToPeers({...updatedCoords, key: user?.uid || ""});
           return updatedCoords;
           // }
@@ -120,7 +122,7 @@ const Pong = ({roomID, username}: {roomID: string; username: string}) => {
     }
   };
 
-  const moveLeft = () => {
+  const moveLeft = (multiplier = 1) => {
     if (stage.current) {
       const {intersects, sides} = haveIntersection(
         ball.current?.getClientRect(),
@@ -129,7 +131,7 @@ const Pong = ({roomID, username}: {roomID: string; username: string}) => {
       if (!intersects || !sides.includes("left")) {
         setCoords((prev) => {
           if (prev.x - SPEED >= 0) {
-            const updatedCoords = {...prev, x: prev.x - SPEED};
+            const updatedCoords = {...prev, x: prev.x - SPEED * multiplier};
             sendDataToPeers({...updatedCoords, key: user?.uid || ""});
             return updatedCoords;
           }
@@ -332,7 +334,26 @@ const Pong = ({roomID, username}: {roomID: string; username: string}) => {
 
     const id = setInterval(checkIntersection, 5);
     return () => clearInterval(id);
-  }, [ballDirection]);
+  }, []);
+
+  useEffect(() => {
+    let animationFrameId: number;
+
+    const updatePosition = () => {
+      const multiplier = Math.abs(angle) / 100;
+      if (angle > 5) {
+        moveRight(multiplier);
+      } else if (angle < -5) {
+        moveLeft(multiplier);
+      }
+
+      animationFrameId = requestAnimationFrame(updatePosition);
+    };
+
+    animationFrameId = requestAnimationFrame(updatePosition);
+
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [angle]);
 
   return (
     <div className="overflow-hidden">
